@@ -1,30 +1,17 @@
 {
-  "name": "biblie-app-lx",
+  "name": "biblie-app-lx-online",
   "version": "1.1.8",
-  "description": "",
+  "description": "Versión Online de la Biblia Cristiana RV 1960",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "GPL-3.0-only",
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
-    "lucide": "^0.563.0",
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "@capacitor-community/text-to-speech": "^8.0.0",
-    "@capacitor/android": "^8.0.2",
-    "@capacitor/cli": "^8.0.2",
-    "@capacitor/core": "^8.0.2",
-    "@capacitor/filesystem": "^8.1.0",
-    "@capacitor/share": "^8.0.0",
-    "@capawesome/capacitor-file-picker": "^8.0.1",
-    "capa-zip": "^8.0.1",
-    "cordova-plugin-apkupdater": "^5.0.1"
+    "lucide": "^0.563.0"
   }
 }
