@@ -731,9 +731,13 @@ header h1 {
     display: flex;
   }
 
-  /* Ocultar botones de retroceso en escritorio ya que existe el sidebar */
-  header .btn-icon {
+  /* Ocultar botones de retroceso en escritorio ya que existe el sidebar, pero permitir botones de accion como historial */
+  header .btn-icon:not(.history-btn) {
     display: none;
+  }
+
+  header .btn-icon.history-btn {
+    display: flex;
   }
 
   /* Ajustar padding superior de los contenedores cuando se oculta el header */

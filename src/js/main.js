@@ -1884,7 +1884,7 @@ class App {
       <header>
         <button class="btn-icon" onclick="window.app.renderHome()">${createIcon('arrow-left')}</button>
         <h1>Devocional Semanal</h1>
-        <button class="btn-icon" onclick="window.app.renderDevotionalHistory()">${createIcon('history')}</button>
+        <button class="btn-icon history-btn" onclick="window.app.renderDevotionalHistory()">${createIcon('history')}</button>
       </header>
       <div class="view-container animate-entrance" style="padding-bottom: 2rem;">
         <div id="devotional-content" style="display: flex; flex-direction: column; gap: 1.5rem; width: 100%; max-width: 800px; margin: 0 auto;">
@@ -2023,7 +2023,7 @@ class App {
       <header>
         <button class="btn-icon" onclick="${fromHistory ? 'window.app.renderDevotionalHistory()' : 'window.app.renderHome()'}\">${createIcon('arrow-left')}</button>
         <h1>${fromHistory ? 'Devocional' : 'Devocional Semanal'}</h1>
-        ${!fromHistory ? `<button class="btn-icon" onclick="window.app.renderDevotionalHistory()">${createIcon('history')}</button>` : ''}
+        ${!fromHistory ? `<button class="btn-icon history-btn" onclick="window.app.renderDevotionalHistory()">${createIcon('history')}</button>` : ''}
       </header>
       <div class="view-container animate-entrance" style="padding-bottom: 2rem;">
         <div style="width: 100%; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
