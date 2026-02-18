@@ -19,6 +19,12 @@ class App {
     this.aboutClickCount = 0;
     this.appVersion = '1.2.4';
     this.repo = 'krafairus/biblia-cristiana-rv1960-app';
+    this.isElectron = !!window.electronAPI;
+
+    if (this.isElectron) {
+      document.body.classList.add('electron');
+      this.setupElectronListeners();
+    }
 
     this.init();
   }
@@ -51,6 +57,33 @@ class App {
     } else {
       this.appEl.innerHTML = '<div class="error" style="height: 100vh; display: flex; align-items: center; justify-content: center; color: white;">Error al cargar la Biblia. Por favor recarga.</div>';
     }
+
+    if (this.isElectron) {
+      this.setupTitleBarEvents();
+    }
+  }
+
+  setupElectronListeners() {
+    // Escuchar cambios de estado si fuera necesario en el futuro
+  }
+
+  setupTitleBarEvents() {
+    const dragArea = document.querySelector('.title-drag');
+    if (dragArea) {
+      dragArea.ondblclick = () => this.maximizeWindow();
+    }
+  }
+
+  minimizeWindow() {
+    if (this.isElectron) window.electronAPI.minimize();
+  }
+
+  maximizeWindow() {
+    if (this.isElectron) window.electronAPI.toggleMaximize();
+  }
+
+  closeWindow() {
+    if (this.isElectron) window.electronAPI.close();
   }
 
   applyTheme(style, mode) {
@@ -144,6 +177,7 @@ class App {
       { text: "Antiguo T.", icon: "book", target: "old" },
       { text: "Nuevo T.", icon: "book-open", target: "new" },
       { text: "Última L.", icon: "history", target: "last" },
+      { text: "Versículo del Día", icon: "sun", target: "vod" },
       { text: "Devocional", icon: "coffee", target: "devotional" },
       { text: "Favoritos", icon: "heart", target: "favorites" },
       { text: "Notas", icon: "sticky-note", target: "notes" },
@@ -697,19 +731,19 @@ class App {
             `).join('')}
           </div>
           
-          <h3 style="margin-bottom: 1.25rem; opacity: 0.6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Modo de Visualización</h3>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-             <div class="premium-card" onclick="window.app.applyTheme(null, 'light')" 
-                   style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_mode === 'light' ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
-                <div class="color-preview" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.1)"></div>
-                <span style="font-size: 0.85rem; font-weight: 600;">Modo Claro</span>
-              </div>
-              <div class="premium-card" onclick="window.app.applyTheme(null, 'dark')" 
-                   style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_mode === 'dark' ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
-                <div class="color-preview" style="background: #0f172a; border: 1px solid rgba(0,0,0,0.1)"></div>
-                <span style="font-size: 0.85rem; font-weight: 600;">Modo Oscuro</span>
-              </div>
-          </div>
+          <h3 style="margin-bottom: 1.25rem; opacity: 0.6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; display: ${this.db.settings.system_theme ? 'none' : 'block'};">Modo de Visualización</h3>
+        <div style="display: ${this.db.settings.system_theme ? 'none' : 'grid'}; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+           <div class="premium-card" onclick="window.app.applyTheme(null, 'light')" 
+                 style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_mode === 'light' ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
+              <div class="color-preview" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.1)"></div>
+              <span style="font-size: 0.85rem; font-weight: 600;">Modo Claro</span>
+            </div>
+            <div class="premium-card" onclick="window.app.applyTheme(null, 'dark')" 
+                 style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_mode === 'dark' ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
+              <div class="color-preview" style="background: #0f172a; border: 1px solid rgba(0,0,0,0.1)"></div>
+              <span style="font-size: 0.85rem; font-weight: 600;">Modo Oscuro</span>
+            </div>
+        </div>
 
           <label class="premium-card" style="padding: 1.25rem; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; display: flex !important;">
             <div style="display: flex; align-items: center; gap: 1rem;">

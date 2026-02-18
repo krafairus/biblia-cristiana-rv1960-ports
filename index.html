@@ -20,11 +20,36 @@
                 (stored.theme_mode || 'light');
             document.documentElement.setAttribute('data-style', style);
             document.documentElement.setAttribute('data-mode', mode);
+
+            // Clean service worker in Electron to prevent cache issues
+            if (window.process && window.process.type === 'renderer' || navigator.userAgent.includes('Electron')) {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                        for (let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+            }
         })();
     </script>
 </head>
 
 <body>
+    <div id="title-bar" class="title-bar">
+        <div class="title-drag">
+            <img src="./icon.png" alt="Logo" class="title-logo">
+            <span class="title-text">Biblia Cristiana RV 1960</span>
+        </div>
+        <div class="window-controls">
+            <button class="control-btn" onclick="window.app.minimizeWindow()" title="Minimizar">
+                <i data-lucide="minus"></i>
+            </button>
+            <button class="control-btn close" onclick="window.app.closeWindow()" title="Cerrar">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+    </div>
     <div id="sidebar"></div>
     <div id="app">
         <div id="splash"

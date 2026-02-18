@@ -2,16 +2,58 @@
   "name": "biblie-app-lx-online",
   "version": "1.2.4",
   "description": "Versión Online de la Biblia Cristiana RV 1960",
-  "main": "index.js",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently --kill-others \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "build:linux": "vite build && electron-builder --linux AppImage",
+    "build:win": "vite build && electron-builder --win nsis"
   },
   "devDependencies": {
-    "vite": "^7.3.1"
+    "concurrently": "^8.2.2",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "vite": "^7.3.1",
+    "wait-on": "^7.2.0"
   },
   "dependencies": {
+    "electron-squirrel-startup": "^1.0.1",
     "lucide": "^0.563.0"
+  },
+  "build": {
+    "appId": "com.lifecodestudios.biblia-rv1960",
+    "productName": "Biblia Cristiana RV 1960",
+    "copyright": "Copyright © 2026 Brandon Galvis",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "icon": "public/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Biblia RV 1960"
+    },
+    "linux": {
+      "icon": "public/icon.png",
+      "category": "Education",
+      "target": [
+        "AppImage"
+      ]
+    }
   }
 }

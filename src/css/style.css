@@ -131,12 +131,13 @@
   --accent: #66bb6a;
   --accent-soft: rgba(102, 187, 106, 0.15);
   --glass-border: rgba(255, 255, 255, 0.08);
+  --header-bg: rgba(13, 20, 13, 0.9);
 }
 
 [data-style="gold"] {
-  --bg-color: #fffaf0;
-  --bg-gradient: linear-gradient(135deg, #fffaf0 0%, #fdf2d5 100%);
-  --card-bg: rgba(255, 255, 255, 0.85);
+  --bg-color: #fcf6e5;
+  --bg-gradient: linear-gradient(135deg, #fcf6e5 0%, #f4ece1 100%);
+  --card-bg: rgba(255, 255, 255, 0.7);
   --text-main: #5d4037;
   --text-muted: #8d6e63;
   --accent: #d4af37;
@@ -144,7 +145,7 @@
   --glass-border: rgba(93, 64, 55, 0.1);
   --shadow: 0 8px 30px rgba(212, 175, 55, 0.15);
   --verse-hover: rgba(212, 175, 55, 0.05);
-  --header-bg: rgba(255, 250, 240, 0.9);
+  --header-bg: rgba(252, 246, 229, 0.9);
 }
 
 [data-style="gold"][data-mode="dark"] {
@@ -157,6 +158,7 @@
   --accent-soft: rgba(255, 202, 40, 0.15);
   --glass-border: rgba(255, 255, 255, 0.15);
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  --header-bg: rgba(26, 22, 16, 0.9);
 }
 
 [data-style="gold"][data-mode="dark"] .premium-card:not(.active) {
@@ -178,6 +180,112 @@
   --header-bg: #ffffff;
 }
 
+
+
+/* Custom Title Bar for Desktop */
+.title-bar {
+  height: 32px;
+  background: var(--bg-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000000;
+  border-bottom: 1px solid var(--glass-border);
+  user-select: none;
+  display: none;
+  /* Hidden by default, shown via JS if electron */
+}
+
+body.electron #title-bar {
+  display: flex;
+}
+
+.title-drag {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: drag;
+}
+
+.title-logo {
+  width: 16px;
+  height: 16px;
+}
+
+.title-text {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.window-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.control-btn {
+  background: none;
+  border: none;
+  width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  opacity: 0.6;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.control-btn:hover {
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+#maximize-btn,
+.control-btn.maximize {
+  display: none !important;
+}
+
+.control-btn.close:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.control-btn i {
+  width: 14px;
+  height: 14px;
+}
+
+/* Adjust layout for electron */
+body.electron #sidebar,
+body.electron #app {
+  padding-top: 32px;
+}
+
+body.electron header {
+  top: 32px;
+}
+
+@media (min-width: 1024px) {
+  body.electron #sidebar {
+    height: calc(100vh - 32px) !important;
+    margin-top: 32px !important;
+    padding-top: 1rem !important;
+  }
+
+  body.electron #app {
+    height: calc(100vh - 32px);
+  }
+}
 
 * {
   margin: 0;
@@ -356,6 +464,8 @@ header h1 {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  color: var(--text-main);
+  font-family: inherit;
 }
 
 .premium-card::after {
