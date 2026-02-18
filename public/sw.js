@@ -1,14 +1,14 @@
-const CACHE_NAME = 'biblia-app-v5'; // Versión 5: Force JSON refresh
+const CACHE_NAME = 'biblia-app-v21'; // Versión 21: Fix sidebar menu state after reader
 const ASSETS = [
     './',
     './index.html',
     './bibles_rv1960.json',
     './dictionary.json',
     './libs/lucide.min.js',
-    './assets/fonts/Inter-VariableFont_opsz,wght.ttf',
-    './assets/fonts/Inter-Italic-VariableFont_opsz,wght.ttf',
-    './assets/fonts/PlayfairDisplay-VariableFont_wght.ttf',
-    './assets/fonts/PlayfairDisplay-Italic-VariableFont_wght.ttf'
+    './src/css/fonts/Inter-VariableFont_opsz_wght-c8O0ljhh.ttf',
+    './src/css/fonts/Inter-Italic-VariableFont_opsz_wght-B-9PvMw6.ttf',
+    './src/css/fonts/PlayfairDisplay-VariableFont_wght-Cl-XvBsO.ttf',
+    './src/css/fonts/PlayfairDisplay-Italic-VariableFont_wght-1BGmD3Ln.ttf'
 ];
 
 self.addEventListener('install', (event) => {

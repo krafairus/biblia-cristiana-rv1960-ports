@@ -11,9 +11,21 @@
     <link rel="icon" type="image/png" href="./icon.png">
     <link rel="apple-touch-icon" href="./icon.png">
     <meta name="theme-color" content="#f4ece1">
+    <script>
+        (function () {
+            const stored = JSON.parse(localStorage.getItem('bible_settings') || '{}');
+            const style = stored.theme_style || 'classic';
+            const mode = stored.system_theme ?
+                (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') :
+                (stored.theme_mode || 'light');
+            document.documentElement.setAttribute('data-style', style);
+            document.documentElement.setAttribute('data-mode', mode);
+        })();
+    </script>
 </head>
 
 <body>
+    <div id="sidebar"></div>
     <div id="app">
         <div id="splash"
             style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f4ece1; color: #3d2b1f; font-family: sans-serif;">
@@ -26,8 +38,9 @@
     <!-- Modal para Notas -->
     <div id="note-modal" class="modal-overlay">
         <div class="modal-box">
-            <h2 class="modal-title">Escribir Nota</h2>
+            <h2 class="modal-title">Escribir Nota <span style="font-size: 0.6rem; opacity: 0.3;">v1.2.4</span></h2>
             <p id="note-verse-ref" class="modal-subtitle"></p>
+            <input type="text" id="note-title" class="modal-input" placeholder="Título de la nota (opcional)">
             <textarea id="note-text" class="modal-textarea"
                 placeholder="¿Qué te dice Dios en este versículo?..."></textarea>
             <div class="modal-actions">

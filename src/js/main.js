@@ -17,7 +17,7 @@ class App {
     this.dictionary = [];
     this.isSpeaking = false;
     this.aboutClickCount = 0;
-    this.appVersion = '1.1.8';
+    this.appVersion = '1.2.4';
     this.repo = 'krafairus/biblia-cristiana-rv1960-app';
 
     this.init();
@@ -44,7 +44,8 @@ class App {
   async init() {
     const loaded = await this.db.init();
     if (loaded) {
-      this.applyTheme(this.db.settings.theme || 'classic');
+      this.applyTheme();
+      this.renderSidebar();
       this.renderHome();
 
     } else {
@@ -52,12 +53,29 @@ class App {
     }
   }
 
-  applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    this.db.setTheme(theme);
+  applyTheme(style, mode) {
+    const s = this.db.settings;
+    if (style) s.theme_style = style;
+    if (mode) s.theme_mode = mode;
+
+    // Si la sincronización con el sistema está activa, sobreescribimos el modo temporalmente
+    let finalMode = s.theme_mode || 'light';
+    if (s.system_theme) {
+      finalMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    document.documentElement.setAttribute('data-style', s.theme_style);
+    document.documentElement.setAttribute('data-mode', finalMode);
+
+    this.db.saveSettings();
     if (this.currentView === 'settings') {
       this.renderSettings();
     }
+  }
+
+  toggleSystemTheme(enabled) {
+    this.db.settings.system_theme = enabled;
+    this.applyTheme();
   }
 
   refreshIcons() {
@@ -75,11 +93,92 @@ class App {
 
   render(html) {
     if (this.isSpeaking) this.stopTTS();
-    document.getElementById('app').innerHTML = html;
+    this.appEl.innerHTML = html;
+    this.appEl.setAttribute('data-view', this.currentView);
+    this.renderSidebar(); // Update sidebar on every render to reflect active link
     this.refreshIcons();
     window.scrollTo({ top: 0, behavior: 'instant' });
     this.appEl.scrollTo(0, 0);
   }
+
+  renderSidebar() {
+    const sidebarEl = document.getElementById('sidebar');
+    if (!sidebarEl) return;
+
+    // En la vista reader, mostrar navegación de capítulos
+    if (this.currentView === 'reader' && this._readerBook && this._readerChapter) {
+      const book = this._readerBook;
+      const chapter = this._readerChapter;
+      const chapters = this.db.getChapters(book);
+
+      sidebarEl.innerHTML = `
+        <div style="padding: 0 1rem 1rem 1rem;">
+          <button onclick="window.app.renderSidebarMenu()" style="display: flex; align-items: center; gap: 0.5rem; background: none; border: none; color: var(--accent); font-weight: 700; cursor: pointer; padding: 0.5rem 0; font-size: 0.9rem; font-family: inherit;">
+            ${createIcon('chevron-left')} Menú
+          </button>
+          <h2 style="font-size: 1.1rem; margin: 0.5rem 0 1rem 0; font-weight: 800;">${book}</h2>
+        </div>
+        <nav style="overflow-y: auto; flex: 1; padding: 0 1rem 2rem 1rem;">
+          <p style="font-size: 0.7rem; font-weight: 800; letter-spacing: 1.5px; opacity: 0.5; text-transform: uppercase; margin-bottom: 0.75rem;">Capítulos</p>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem;">
+            ${chapters.map(ch => `
+              <button class="${ch === chapter ? 'premium-card active' : 'premium-card'}"
+                      onclick="window.app.renderReader('${book.replace(/'/g, "\\'")}', '${ch}')"
+                      style="padding: 0.5rem; font-size: 0.85rem; font-weight: 700; justify-content: center; border-radius: 10px; ${ch === chapter ? 'background: var(--accent); color: white; border: none;' : ''}">
+                ${ch}
+              </button>
+            `).join('')}
+          </div>
+        </nav>
+        <div style="padding: 1rem; opacity: 0.4; font-size: 0.8rem; text-align: center;">
+          v${this.appVersion}
+        </div>
+      `;
+      this.refreshIcons();
+      return;
+    }
+
+    // Menú principal normal
+    const menuItems = [
+      { text: "Inicio", icon: "home", target: "home" },
+      { text: "Antiguo T.", icon: "book", target: "old" },
+      { text: "Nuevo T.", icon: "book-open", target: "new" },
+      { text: "Favoritos", icon: "heart", target: "favorites" },
+      { text: "Notas", icon: "sticky-note", target: "notes" },
+      { text: "Marcadores", icon: "highlighter", target: "highlights" },
+      { text: "Buscador", icon: "search", target: "search" },
+      { text: "Diccionario", icon: "book-a", target: "dict" },
+      { text: "Ajustes", icon: "settings", target: "settings" }
+    ];
+
+    sidebarEl.innerHTML = `
+      <div style="padding: 0 1rem 2rem 1rem; text-align: center;">
+        <img src="/icon.png" style="width: 60px; height: 60px; margin-bottom: 1rem;">
+        <h2 style="font-size: 1.2rem; margin: 0;">Biblia RV1960</h2>
+      </div>
+      <nav>
+        ${menuItems.map(item => `
+          <div class="sidebar-link ${this.currentView === item.target || (item.target === 'home' && (this.currentView === 'home' || this.currentView === 'book-list')) ? 'active' : ''}" 
+               onclick="window.app.navigate('${item.target}')">
+            ${createIcon(item.icon)}
+            <span>${item.text}</span>
+          </div>
+        `).join('')}
+      </nav>
+      <div style="margin-top: auto; padding: 1rem; opacity: 0.4; font-size: 0.8rem; text-align: center;">
+        v${this.appVersion}
+      </div>
+    `;
+    this.refreshIcons();
+  }
+
+  renderSidebarMenu() {
+    // Limpiar estado del reader para que el sidebar muestre el menú principal
+    this._readerBook = null;
+    this._readerChapter = null;
+    this.renderSidebar();
+  }
+
 
   showToast(message, duration = 3000) {
     const container = document.querySelector('#toast-container');
@@ -221,8 +320,30 @@ class App {
         <p class="section-label">Seleccionar Capítulo</p>
         <div class="chapter-list-grid">
           ${chapters.map(ch => `
-            <div class="premium-card chapter-box" onclick="window.app.renderReader('${book}', '${ch}')">
+            <div class="premium-card chapter-box" onclick="window.app.renderVerseList('${book.replace(/'/g, "\\'")}', '${ch}')">
               ${ch}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    this.render(html);
+  }
+
+  renderVerseList(book, chapter) {
+    this.currentView = 'verses';
+    const verses = this.db.getVerses(book, chapter);
+    const html = `
+      <header>
+        <button class="btn-icon" onclick="window.app.renderChapterList('${book.replace(/'/g, "\\'")}')">${createIcon('chevron-left')}</button>
+        <h1 style="font-size: 1.2rem;">${book} ${chapter}</h1>
+      </header>
+      <div class="view-container animate-entrance">
+        <p class="section-label">Seleccionar Versículo</p>
+        <div class="chapter-list-grid">
+          ${verses.map(([vNum]) => `
+            <div class="premium-card chapter-box" onclick="window.pendingVerseScroll='${vNum}'; window.app.renderReader('${book.replace(/'/g, "\\'")}', '${chapter}')">
+              ${vNum}
             </div>
           `).join('')}
         </div>
@@ -233,6 +354,8 @@ class App {
 
   renderReader(book, chapter) {
     this.currentView = 'reader';
+    this._readerBook = book;
+    this._readerChapter = chapter;
     this.db.setLastRead(book, chapter);
     const chapters = this.db.getChapters(book);
     const verses = this.db.getVerses(book, chapter);
@@ -286,7 +409,7 @@ class App {
       </div>
     `;
     this.render(html);
-    const activeTab = document.querySelector('#chapter-tabs .premium-card');
+    const activeTab = document.querySelector('#chapter-tabs .premium-card.active');
     if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
     // Scroll to specific verse if requested (from favorites)
@@ -388,12 +511,16 @@ class App {
     const { book, chapter, vNum } = this.selectedVerse;
     const modal = document.querySelector('#note-modal');
     const refEl = document.querySelector('#note-verse-ref');
+    const titleEl = document.querySelector('#note-title');
     const textEl = document.querySelector('#note-text');
 
     refEl.innerText = `${book} ${chapter}:${vNum}`;
+    if (titleEl) titleEl.value = '';
     textEl.value = '';
+    this.editingNoteIndex = undefined;
     modal.classList.add('active');
-    textEl.focus();
+    if (titleEl) titleEl.focus();
+    else textEl.focus();
   }
 
   closeNoteModal() {
@@ -405,17 +532,19 @@ class App {
   saveNoteFromModal() {
     if (!this.selectedVerse && this.editingNoteIndex === undefined) return;
     const textEl = document.querySelector('#note-text');
+    const titleEl = document.querySelector('#note-title');
     const note = textEl.value.trim();
+    const title = titleEl ? titleEl.value.trim() : "Nota sin nombre";
 
     if (note) {
       if (this.editingNoteIndex !== undefined) {
-        this.db.updateNote(this.editingNoteIndex, note);
+        this.db.updateNote(this.editingNoteIndex, note, title);
         this.editingNoteIndex = undefined;
       } else {
         const { book, chapter, vNum, text } = this.selectedVerse;
-        this.db.addNote(book, chapter, vNum, text, note);
+        this.db.addNote(book, chapter, vNum, text, note, title);
       }
-      this.renderNotes(); // Refresh view if in notes
+      if (this.currentView === 'notes') this.renderNotes();
     }
     this.closeNoteModal();
   }
@@ -469,9 +598,11 @@ class App {
     this.editingNoteIndex = index;
     const modal = document.querySelector('#note-modal');
     const refEl = document.querySelector('#note-verse-ref');
+    const titleEl = document.querySelector('#note-title');
     const textEl = document.querySelector('#note-text');
 
     refEl.innerText = `${note.book} ${note.chapter}:${note.verse}`;
+    if (titleEl) titleEl.value = note.title || "Nota sin nombre";
     textEl.value = note.note;
     modal.classList.add('active');
     textEl.focus();
@@ -492,6 +623,50 @@ class App {
     this.showShareOptions();
   }
 
+  exportUserData() {
+    try {
+      const data = this.db.exportUserData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `biblia_rv1960_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.showToast("Copia de seguridad descargada.");
+    } catch (e) {
+      console.error(e);
+      this.showToast("Error al exportar los datos.");
+    }
+  }
+
+  importUserData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          this.db.importUserData(data);
+          this.showToast("Datos importados con éxito. Recargando...");
+          setTimeout(() => window.location.reload(), 1500);
+        } catch (e) {
+          console.error(e);
+          this.showToast("Error: Archivo de respaldo inválido.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
   async renderSettings() {
     this.currentView = 'settings';
 
@@ -502,26 +677,78 @@ class App {
       </header>
       <div class="view-container animate-entrance">
         <div style="margin-bottom: 2rem;">
-          <h3 style="margin-bottom: 1.25rem; opacity: 0.6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Paleta de Colores</h3>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+          <h3 style="margin-bottom: 1.25rem; opacity: 0.6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Paleta de Colores (Estilo)</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
             ${[
-        { id: 'classic', name: 'Biblia Clásica', color: '#f4ece1' },
-        { id: 'light', name: 'Modo Claro', color: '#ffffff' },
-        { id: 'dark', name: 'Modo Oscuro', color: '#0f172a' },
+        { id: 'classic', name: 'Estilo Clásico', color: '#f4ece1' },
         { id: 'floral', name: 'Estilo Floral', color: '#fff5f7' },
-        { id: 'pastel-blue', name: 'Azul Pastel', color: '#ebf5ff' },
-        { id: 'ink', name: 'Modo Tinta', color: '#000000' }
+        { id: 'pastel-blue', name: 'Estilo Pastel', color: '#ebf5ff' },
+        { id: 'forest', name: 'Estilo Bosque', color: '#388e3c' },
+        { id: 'gold', name: 'Estilo Oro', color: '#d4af37' },
+        { id: 'ink', name: 'Modo Tinta', color: '#ffffff' }
       ].map(t => `
               <div class="premium-card" onclick="window.app.applyTheme('${t.id}')" 
-                   style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme === t.id ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
+                   style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_style === t.id ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
                 <div class="color-preview" style="background: ${t.color}; border: 1px solid rgba(0,0,0,0.1)"></div>
-                <span style="font-size: 0.9rem; font-weight: 600;">${t.name}</span>
+                <span style="font-size: 0.85rem; font-weight: 600;">${t.name}</span>
               </div>
             `).join('')}
           </div>
+          
+          <h3 style="margin-bottom: 1.25rem; opacity: 0.6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Modo de Visualización</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+             <div class="premium-card" onclick="window.app.applyTheme(null, 'light')" 
+                   style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_mode === 'light' ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
+                <div class="color-preview" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.1)"></div>
+                <span style="font-size: 0.85rem; font-weight: 600;">Modo Claro</span>
+              </div>
+              <div class="premium-card" onclick="window.app.applyTheme(null, 'dark')" 
+                   style="padding: 1rem; flex-direction: row; gap: 0.75rem; border: ${this.db.settings.theme_mode === 'dark' ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}">
+                <div class="color-preview" style="background: #0f172a; border: 1px solid rgba(0,0,0,0.1)"></div>
+                <span style="font-size: 0.85rem; font-weight: 600;">Modo Oscuro</span>
+              </div>
+          </div>
+
+          <label class="premium-card" style="padding: 1.25rem; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; display: flex !important;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="color: var(--accent);">${createIcon('refresh-cw')}</div>
+              <div style="display: flex; flex-direction: column; text-align: left;">
+                <span style="font-size: 0.9rem; font-weight: 700;">Sincronizar con el sistema</span>
+                <span style="font-size: 0.8rem; opacity: 0.6;">Sigue el modo claro/oscuro de tu PC</span>
+              </div>
+            </div>
+            <div class="switch">
+              <input type="checkbox" ${this.db.settings.system_theme ? 'checked' : ''} onchange="window.app.toggleSystemTheme(this.checked)">
+              <span class="slider round"></span>
+            </div>
+          </label>
         </div>
 
-
+        <div style="margin-bottom: 2rem; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
+          <h3 style="margin-bottom: 1.25rem; opacity: 0.6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Respaldo de Datos</h3>
+          
+          <div class="premium-card" onclick="window.app.exportUserData()" style="padding: 1.25rem; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="color: var(--accent);">${createIcon('download')}</div>
+              <div style="display: flex; flex-direction: column; text-align: left;">
+                <span style="font-size: 0.9rem; font-weight: 700;">Exportar Datos</span>
+                <span style="font-size: 0.8rem; opacity: 0.6;">Guardar copia de seguridad (JSON)</span>
+              </div>
+            </div>
+            <div style="opacity: 0.4;">${createIcon('chevron-right')}</div>
+          </div>
+          
+          <div class="premium-card" onclick="window.app.importUserData()" style="padding: 1.25rem; flex-direction: row; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="color: var(--accent);">${createIcon('upload')}</div>
+              <div style="display: flex; flex-direction: column; text-align: left;">
+                <span style="font-size: 0.9rem; font-weight: 700;">Importar Datos</span>
+                <span style="font-size: 0.8rem; opacity: 0.6;">Restaurar desde archivo (JSON)</span>
+              </div>
+            </div>
+            <div style="opacity: 0.4;">${createIcon('chevron-right')}</div>
+          </div>
+        </div>
       </div>
     `;
     this.render(html);
@@ -780,22 +1007,52 @@ class App {
 
   renderHighlights() {
     this.currentView = 'highlights';
-    const list = this.db.highlights;
+    if (!this.highlightFilter) this.highlightFilter = 'all';
+
+    const colors = [
+      { id: 'all', name: 'Todos', color: 'var(--text-main)' },
+      { id: '#fef3c7', name: 'Amarillo', color: '#fef3c7' },
+      { id: '#dcfce7', name: 'Verde', color: '#dcfce7' },
+      { id: '#dbeafe', name: 'Azul', color: '#dbeafe' },
+      { id: '#fae8ff', name: 'Lila', color: '#fae8ff' },
+      { id: '#fee2e2', name: 'Rojo', color: '#fee2e2' },
+      { id: '#ffedd5', name: 'Naranja', color: '#ffedd5' }
+    ];
+
+    const list = this.highlightFilter === 'all'
+      ? this.db.highlights
+      : this.db.highlights.filter(h => h.color === this.highlightFilter);
+
     const html = `
-      <header>
-        <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
-        <h1>Marcadores</h1>
+      <header style="flex-direction: column; height: auto; padding-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem; width: 100%; margin-bottom: 1rem;">
+          <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
+          <h1>Marcadores</h1>
+        </div>
+        <div style="display: flex; overflow-x: auto; gap: 0.75rem; width: 100%; padding: 0.25rem; scrollbar-width: none;">
+          ${colors.map(c => `
+            <button onclick="window.app.applyHighlightFilter('${c.id}')" 
+                    style="padding: 0.5rem 1rem; border-radius: 20px; border: ${this.highlightFilter === c.id ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}; 
+                           background: ${c.id === 'all' ? 'var(--card-bg)' : c.color}; 
+                           color: ${c.id === 'all' ? 'var(--text-main)' : '#333'};
+                           font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+              ${c.id === 'all' ? createIcon('filter') : `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${c.color}"></div>`}
+              ${c.name}
+            </button>
+          `).join('')}
+        </div>
       </header>
       <div class="view-container animate-entrance">
-        ${list.length === 0 ? '<p style="text-align: center; opacity: 0.5;">No tienes marcadores aún.</p>' :
+        ${list.length === 0 ? '<p style="text-align: center; opacity: 0.5; margin-top: 2rem;">No hay marcadores con este filtro.</p>' :
         list.map((h, index) => `
-            <div class="premium-card highlight-card" style="margin-bottom: 1rem; border-left: 8px solid ${h.color};" onclick="window.app.toggleHighlightSelection(${index})">
-                <div style="flex: 1;">
-                     <div style="color: var(--accent); font-size: 0.9rem; font-weight: 700; margin-bottom: 0.25rem;">
-                        ${h.book} ${h.chapter}:${h.verse}
-                     </div>
-                     <div style="font-size: 1rem; opacity: 0.9;">${h.text}</div>
+            <div class="premium-card highlight-card" style="margin-bottom: 1.25rem; border-left: 8px solid ${h.color}; padding: 1.25rem; align-items: flex-start; text-align: left;" onclick="window.app.toggleHighlightSelection(${index})">
+                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                   <div style="color: var(--accent); font-size: 0.9rem; font-weight: 800;">
+                      ${h.book} ${h.chapter}:${h.verse}
+                   </div>
+                   <div style="width: 14px; height: 14px; border-radius: 50%; background: ${h.color}; border: 1px solid rgba(0,0,0,0.1);"></div>
                 </div>
+                <div style="font-size: 1.05rem; line-height: 1.6; color: var(--text-main); font-family: 'Inter', sans-serif;">${h.text}</div>
             </div>
         `).join('')}
       </div>
@@ -815,6 +1072,11 @@ class App {
       </div>
     `;
     this.render(html);
+  }
+
+  applyHighlightFilter(filter) {
+    this.highlightFilter = filter;
+    this.renderHighlights();
   }
 
   toggleHighlightSelection(index) {
@@ -895,28 +1157,107 @@ class App {
   renderNotes() {
     this.currentView = 'notes';
     this.selectedNoteIndex = null;
-    const notes = this.db.notes;
+    if (!this._notesSortDesc) this._notesSortDesc = true;
+
+    const notes = [...this.db.notes];
+    notes.sort((a, b) => {
+      const da = new Date(a.date), db = new Date(b.date);
+      return this._notesSortDesc ? db - da : da - db;
+    });
+
     const html = `
       <header>
         <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
         <h1>Mis Notas</h1>
+        <button class="btn-icon" onclick="window.app.toggleNotesSort()" title="Ordenar" style="margin-left: auto;">
+          ${createIcon('arrow-down-up')}
+        </button>
       </header>
       <div class="view-container animate-entrance">
-        ${notes.length === 0 ? '<p style="text-align: center; opacity: 0.5;">No tienes notas aún.</p>' :
-        notes.map((n, index) => `
-            <div class="premium-card note-card" style="margin-bottom: 1.25rem; align-items: flex-start; text-align: left; padding-bottom: 1rem;"
-                 onclick="window.app.toggleNoteSelection(${index})">
-              <div style="color: var(--accent); font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 700; width: 100%;">
-                <span>${n.book} ${n.chapter}:${n.verse}</span>
+        ${notes.length === 0 ? '<p style="text-align: center; opacity: 0.5; margin-top: 3rem;">No tienes notas aún.</p>' :
+        notes.map((n) => {
+          const realIndex = this.db.notes.indexOf(n);
+          return `
+            <div class="note-item-compact" onclick="window.app.renderEditNote(${realIndex})">
+              <div class="note-info-compact">
+                <span class="note-title-compact">${n.title || 'Sin título'}</span>
+                <span class="note-date-compact">${new Date(n.date).toLocaleDateString()}</span>
               </div>
-              <div style="font-size: 0.9rem; opacity: 0.5; margin-bottom: 0.5rem; border-left: 2px solid var(--accent); padding-left: 0.75rem;">"${n.text}"</div>
-              <div style="background: var(--accent-soft); width: 100%; padding: 1rem; border-radius: 12px; font-size: 1.05rem; line-height: 1.5; margin-bottom: 0.5rem;">${n.note}</div>
-              <div style="width: 100%; text-align: right; opacity: 0.3; font-size: 0.7rem;">${new Date(n.date).toLocaleString()}</div>
+              <div class="note-chevron">${createIcon('chevron-right')}</div>
             </div>
-          `).join('')}
+          `;
+        }).join('')}
       </div>
     `;
     this.render(html);
+  }
+
+  toggleNotesSort() {
+    this._notesSortDesc = !this._notesSortDesc;
+    this.renderNotes();
+  }
+
+  renderEditNote(index) {
+    this.currentView = 'edit-note';
+    const n = this.db.notes[index];
+    if (!n) { this.renderNotes(); return; }
+
+    const createdDate = new Date(n.date).toLocaleString();
+
+    const html = `
+      <header>
+        <button class="btn-icon" onclick="window.app.renderNotes()">${createIcon('chevron-left')}</button>
+        <h1>Editar Nota</h1>
+        <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+          <button class="btn-icon" onclick="window.app.saveEditNote(${index})" title="Guardar" style="color: var(--accent);">
+            ${createIcon('check')}
+          </button>
+          <button class="btn-icon" onclick="window.app.confirmDeleteEditNote(${index})" title="Eliminar" style="color: #ef4444;">
+            ${createIcon('trash-2')}
+          </button>
+        </div>
+      </header>
+      <div class="view-container animate-entrance">
+        <div class="verse-preview-card">
+          <div class="verse-preview-ref">${n.book} ${n.chapter}:${n.verse}</div>
+          <div class="verse-preview-text">"${n.text}"</div>
+        </div>
+
+        <label class="form-label-premium">Título</label>
+        <input id="edit-note-title" class="edit-input-premium" type="text" value="${(n.title || '').replace(/"/g, '&quot;')}" placeholder="Título de la nota">
+
+        <label class="form-label-premium">Contenido de la nota</label>
+        <textarea id="edit-note-content" class="edit-textarea-premium" placeholder="¿Qué te dice Dios en este versículo?">${n.note || ''}</textarea>
+
+        <div class="edit-note-footer">Creado el ${createdDate}</div>
+      </div>
+    `;
+    this.render(html);
+  }
+
+  saveEditNote(index) {
+    const title = document.getElementById('edit-note-title')?.value?.trim() || 'Sin título';
+    const note = document.getElementById('edit-note-content')?.value?.trim() || '';
+    this.db.updateNote(index, note, title);
+    this.showToast('Nota guardada.');
+    this.renderNotes();
+  }
+
+  confirmDeleteEditNote(index) {
+    this.openConfirmModal(
+      'Eliminar Nota',
+      '¿Estás seguro de que quieres eliminar esta nota?',
+      () => {
+        this.db.deleteNote(index);
+        this.renderNotes();
+      }
+    );
+  }
+
+  confirmDeleteNoteFromBar() {
+    if (this.selectedNoteIndex === null) return;
+    this.confirmDeleteNote(this.selectedNoteIndex);
+    this.clearNoteSelection();
   }
 
   /* Search View with Modal Filter */
@@ -1132,11 +1473,12 @@ class App {
           <p style="opacity: 0.5; font-weight: 600; letter-spacing: 1px; font-size: 0.8rem;">REINA VALERA 1960</p>
         </div>
 
-        <div class="premium-card" style="background: var(--accent-soft); border-color: var(--accent); padding: 1.25rem;">
-          <p style="font-style: italic; font-size: 1.1rem; line-height: 1.6; font-family: 'Playfair Display', serif;">
+        <div class="premium-card" style="background: var(--accent-soft); border-color: var(--accent); padding: 1.5rem; max-width: 600px; margin: 0 auto; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: -10px; right: 10px; font-size: 8rem; opacity: 0.05; font-family: 'Playfair Display', serif; pointer-events: none;">"</div>
+          <p style="font-style: italic; font-size: 1.15rem; line-height: 1.6; font-family: 'Playfair Display', serif; margin: 0; position: relative; z-index: 1;">
             "Lámpara es a mis pies tu palabra, y lumbrera a mi camino."
           </p>
-          <p style="margin-top: 0.75rem; color: var(--accent); font-weight: 800; font-size: 0.85rem;">SALMOS 119:105</p>
+          <p style="margin-top: 1rem; color: var(--accent); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; position: relative; z-index: 1;">Salmos 119:105</p>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -1191,7 +1533,7 @@ class App {
           </div>
         </div>
 
-        <p style="font-size: 0.8rem; opacity: 0.3; margin-top: 1rem;">VERSIÓN 1.1.8</p>
+        <p style="font-size: 0.8rem; opacity: 0.3; margin-top: 1rem;">VERSIÓN ${this.appVersion}</p>
       </div>
     `;
     this.render(html);
@@ -1516,7 +1858,7 @@ class App {
 
   handleAboutClick() {
     this.aboutClickCount++;
-    if (this.aboutClickCount >= 3) {
+    if (this.aboutClickCount >= 5) {
       this.aboutClickCount = 0;
       this.openLoveModal();
     }

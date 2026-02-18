@@ -1,6 +1,6 @@
 {
   "name": "biblie-app-lx-online",
-  "version": "1.1.8",
+  "version": "1.2.4",
   "description": "Versión Online de la Biblia Cristiana RV 1960",
   "main": "index.js",
   "scripts": {
