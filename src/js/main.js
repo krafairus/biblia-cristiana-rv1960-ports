@@ -116,7 +116,7 @@ class App {
       window.lucide.createIcons();
     } else {
       const script = document.createElement('script');
-      script.src = '/libs/lucide.min.js';
+      script.src = './libs/lucide.min.js';
       script.onload = () => {
         if (window.lucide) window.lucide.createIcons();
       };
@@ -177,7 +177,7 @@ class App {
       { text: "Antiguo T.", icon: "book", target: "old" },
       { text: "Nuevo T.", icon: "book-open", target: "new" },
       { text: "Última L.", icon: "history", target: "last" },
-      { text: "Versículo del Día", icon: "sun", target: "vod" },
+      { text: "Vr del Día", icon: "sun", target: "vod" },
       { text: "Devocional", icon: "coffee", target: "devotional" },
       { text: "Favoritos", icon: "heart", target: "favorites" },
       { text: "Notas", icon: "sticky-note", target: "notes" },
@@ -189,7 +189,7 @@ class App {
 
     sidebarEl.innerHTML = `
       <div style="padding: 0 1rem 2rem 1rem; text-align: center;">
-        <img src="/icon.png" style="width: 60px; height: 60px; margin-bottom: 1rem;">
+        <img src="./icon.png" style="width: 60px; height: 60px; margin-bottom: 1rem;">
         <h2 style="font-size: 1.2rem; margin: 0;">Biblia RV1960</h2>
       </div>
       <nav>
@@ -438,7 +438,7 @@ class App {
 
       <div id="highlight-bar" class="floating-toolbar animate-entrance" style="display: none; top: auto; bottom: 80px; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 10px;">
         ${['#fef3c7', '#dcfce7', '#dbeafe', '#fae8ff', '#fee2e2', '#ffedd5', '#f3f4f6', 'transparent'].map(c => `
-            <div data-color="${c}" onclick="window.app.applyHighlight('${c}')" style="width: 30px; height: 30px; border-radius: 50%; background: ${c === 'transparent' ? 'white' : c}; border: 1px solid #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+            <div data-color="${c}" onclick="window.app.applyHighlight('${c}')" style="width: 30px; height: 30px; border-radius: 50%; background: ${c === 'transparent' ? 'var(--card-bg)' : c}; border: 1px solid var(--glass-border); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main);">
                 ${c === 'transparent' ? createIcon('ban') : ''}
             </div>
         `).join('')}
@@ -1501,7 +1501,7 @@ class App {
       </header>
       <div class="view-container animate-entrance" style="text-align: center; display: flex; flex-direction: column; gap: 1.5rem; padding-top: 2rem;">
         <div style="margin: 0 auto; width: 100px; height: 100px; position: relative;">
-          <img src="/icon.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 3px solid var(--accent-soft);">
+          <img src="./icon.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 3px solid var(--accent-soft);">
         </div>
         
         <div>
@@ -1509,13 +1509,13 @@ class App {
           <p style="opacity: 0.5; font-weight: 600; letter-spacing: 1px; font-size: 0.8rem;">REINA VALERA 1960</p>
         </div>
 
-        <div class="premium-card" style="background: var(--accent-soft); border-color: var(--accent); padding: 1.5rem; max-width: 600px; margin: 0 auto; position: relative; overflow: hidden;">
-          <div style="position: absolute; top: -10px; right: 10px; font-size: 8rem; opacity: 0.05; font-family: 'Playfair Display', serif; pointer-events: none;">"</div>
-          <p style="font-style: italic; font-size: 1.15rem; line-height: 1.6; font-family: 'Playfair Display', serif; margin: 0; position: relative; z-index: 1;">
-            "Lámpara es a mis pies tu palabra, y lumbrera a mi camino."
-          </p>
-          <p style="margin-top: 1rem; color: var(--accent); font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; position: relative; z-index: 1;">Salmos 119:105</p>
-        </div>
+      <div class="premium-card" style="background: var(--accent-soft); border-color: var(--accent); padding: 3.5rem 2rem; max-width: 600px; margin: 0 auto; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 180px; overflow: visible;">
+        <div style="position: absolute; top: 10px; right: 20px; font-size: 7rem; opacity: 0.1; font-family: 'Playfair Display', serif; pointer-events: none; line-height: 1;">"</div>
+        <p style="font-style: italic; font-size: 1.25rem; line-height: 1.8; font-family: 'Playfair Display', serif; margin: 0; position: relative; z-index: 1; text-align: center; color: var(--text-main);">
+          "Lámpara es a mis pies tu palabra, y lumbrera a mi camino."
+        </p>
+        <p style="margin-top: 1.5rem; color: var(--accent); font-weight: 800; font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; position: relative; z-index: 1;">Salmos 119:105</p>
+      </div>
 
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
           <div style="display: flex; flex-direction: column; gap: 0.75rem; align-items: center;">
@@ -1553,7 +1553,7 @@ class App {
           <div style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(41, 171, 224, 0.1), rgba(255, 94, 94, 0.1)); border-radius: 16px; border: 1px solid var(--glass-border); text-align: center;">
               <h4 style="color: var(--accent); margin-bottom: 0.5rem;">Apoya este proyecto</h4>
               <p style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 1rem;">Tu donación nos ayuda a seguir mejorando y creando más herramientas gratuitas.</p>
-              <a href="https://ko-fi.com/lifecodestudios/goal?g=0" target="_blank" class="btn-primary" style="background: #29abe0; color: white; display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; justify-content: center; width: auto; padding: 0.75rem 1.5rem;">
+              <a href="https://ko-fi.com/lifecodestudios/goal?g=0" target="_blank" class="btn-primary" style="background: #29abe0; color: white; display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; justify-content: center; width: auto; padding: 0.75rem 1.5rem; border-radius: 12px;">
                   ${createIcon('coffee')} Donar en Ko-fi
               </a>
           </div>
