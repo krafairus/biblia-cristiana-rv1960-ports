@@ -53,7 +53,6 @@ class App {
       this.applyTheme();
       this.renderSidebar();
       this.renderHome();
-
     } else {
       this.appEl.innerHTML = '<div class="error" style="height: 100vh; display: flex; align-items: center; justify-content: center; color: white;">Error al cargar la Biblia. Por favor recarga.</div>';
     }
@@ -61,6 +60,82 @@ class App {
     if (this.isElectron) {
       this.setupTitleBarEvents();
     }
+  }
+
+  setupEditorToolbar(editorId = '#note-text', toolbarId = '#note-toolbar') {
+    const toolbar = document.querySelector(toolbarId);
+    if (!toolbar) return;
+    const editor = document.querySelector(editorId);
+    if (!editor) return;
+
+    toolbar.querySelectorAll('.toolbar-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const command = btn.getAttribute('data-command');
+        const value = btn.getAttribute('data-value') || null;
+
+        if (command === 'createLink') {
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            this._savedSelection = selection.getRangeAt(0).cloneRange();
+          } else {
+            editor.focus();
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+              this._savedSelection = sel.getRangeAt(0).cloneRange();
+            } else {
+              const range = document.createRange();
+              range.selectNodeContents(editor);
+              range.collapse(false);
+              this._savedSelection = range;
+            }
+          }
+          this.openLinkModal();
+        } else if (command === 'formatBlock' && value) {
+          // Lógica de Toggle para Bloques (h1, h2, h3, pre, blockquote)
+          const currentValue = document.queryCommandValue('formatBlock');
+          if (currentValue === value || (value === 'pre' && currentValue === 'plain')) {
+            document.execCommand('formatBlock', false, 'p');
+          } else {
+            document.execCommand('formatBlock', false, value);
+          }
+        } else {
+          document.execCommand(command, false, value);
+        }
+
+        editor.focus();
+        this.updateToolbarState(toolbar);
+      };
+    });
+
+    editor.onkeyup = editor.onmouseup = () => this.updateToolbarState(toolbar);
+    editor.onfocus = () => this.updateToolbarState(toolbar);
+  }
+
+  updateToolbarState(toolbar) {
+    if (!toolbar) return;
+    toolbar.querySelectorAll('.toolbar-btn').forEach(btn => {
+      const command = btn.getAttribute('data-command');
+      const value = btn.getAttribute('data-value');
+
+      if (!command || ['undo', 'redo', 'createLink', 'removeFormat', 'insertHorizontalRule'].includes(command)) return;
+
+      try {
+        let active = false;
+        if (command === 'formatBlock' && value) {
+          const currentValue = document.queryCommandValue('formatBlock');
+          active = (currentValue === value || (value === 'pre' && currentValue === 'plain'));
+        } else {
+          active = document.queryCommandState(command);
+        }
+
+        if (active) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      } catch (e) { }
+    });
   }
 
   setupElectronListeners() {
@@ -258,7 +333,6 @@ class App {
       </header>
       <div class="view-container animate-entrance">
         
-        <!-- VERSE OF THE DAY CARD -->
         <div class="vod-home-card" 
              onclick="window.app.navigate('vod')"
              style="background-image: url('./img/bg-verse-4.png');">
@@ -292,6 +366,7 @@ class App {
       </div>
     `;
     this.render(html);
+    this.refreshIcons();
   }
 
   navigate(target) {
@@ -303,6 +378,10 @@ class App {
     this.closeShareModal(); // Asegurar que modales también se cierren
 
     if (target === 'home') this.renderHome();
+    else if (target === 'reader') {
+      const { last_book, last_chapter } = this.db.settings;
+      this.renderReader(last_book, last_chapter);
+    }
     else if (target === 'old') this.renderBookList('old');
     else if (target === 'new') this.renderBookList('new');
     else if (target === 'favorites') this.renderFavorites();
@@ -544,46 +623,9 @@ class App {
 
   handleNote() {
     if (!this.selectedVerse) return;
-    const { book, chapter, vNum } = this.selectedVerse;
-    const modal = document.querySelector('#note-modal');
-    const refEl = document.querySelector('#note-verse-ref');
-    const titleEl = document.querySelector('#note-title');
-    const textEl = document.querySelector('#note-text');
-
-    refEl.innerText = `${book} ${chapter}:${vNum}`;
-    if (titleEl) titleEl.value = '';
-    textEl.value = '';
-    this.editingNoteIndex = undefined;
-    modal.classList.add('active');
-    if (titleEl) titleEl.focus();
-    else textEl.focus();
+    this.renderNoteEditor(this.selectedVerse);
   }
 
-  closeNoteModal() {
-    const modal = document.querySelector('#note-modal');
-    modal.classList.remove('active');
-    this.clearSelection();
-  }
-
-  saveNoteFromModal() {
-    if (!this.selectedVerse && this.editingNoteIndex === undefined) return;
-    const textEl = document.querySelector('#note-text');
-    const titleEl = document.querySelector('#note-title');
-    const note = textEl.value.trim();
-    const title = titleEl ? titleEl.value.trim() : "Nota sin nombre";
-
-    if (note) {
-      if (this.editingNoteIndex !== undefined) {
-        this.db.updateNote(this.editingNoteIndex, note, title);
-        this.editingNoteIndex = undefined;
-      } else {
-        const { book, chapter, vNum, text } = this.selectedVerse;
-        this.db.addNote(book, chapter, vNum, text, note, title);
-      }
-      if (this.currentView === 'notes') this.renderNotes();
-    }
-    this.closeNoteModal();
-  }
 
   confirmDeleteNote(index) {
     this.openConfirmModal(
@@ -628,20 +670,48 @@ class App {
     if (modal) modal.classList.remove('active');
   }
 
-  openEditNote(index) {
-    const note = this.db.notes[index];
-    if (!note) return;
-    this.editingNoteIndex = index;
-    const modal = document.querySelector('#note-modal');
-    const refEl = document.querySelector('#note-verse-ref');
-    const titleEl = document.querySelector('#note-title');
-    const textEl = document.querySelector('#note-text');
-
-    refEl.innerText = `${note.book} ${note.chapter}:${note.verse}`;
-    if (titleEl) titleEl.value = note.title || "Nota sin nombre";
-    textEl.value = note.note;
+  openLinkModal() {
+    const modal = document.querySelector('#link-modal');
+    const input = document.querySelector('#link-url-input');
+    if (!modal) return;
+    if (input) input.value = '';
     modal.classList.add('active');
-    textEl.focus();
+    if (input) input.focus();
+  }
+
+  closeLinkModal() {
+    const modal = document.querySelector('#link-modal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  applyLinkFromModal() {
+    const input = document.querySelector('#link-url-input');
+    const url = input ? input.value.trim() : "";
+
+    if (url && this._savedSelection) {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(this._savedSelection);
+
+      // Si la selección está colapsada (no hay texto seleccionado), insertamos el link con el mismo texto que la URL
+      if (this._savedSelection.collapsed) {
+        const link = document.createElement('a');
+        link.href = url.startsWith('http') ? url : `https://${url}`;
+        link.textContent = url;
+        link.target = "_blank";
+        this._savedSelection.insertNode(link);
+        this._savedSelection.collapse(false);
+      } else {
+        document.execCommand('createLink', false, url);
+      }
+    }
+
+    this.closeLinkModal();
+    this._savedSelection = null;
+  }
+
+  openEditNote(index) {
+    this.renderNoteEditor(this.db.notes[index], index);
   }
 
   handleCopy() {
@@ -792,9 +862,37 @@ class App {
 
 
 
+  toggleNotePinFromEditor(index) {
+    this.db.toggleNotePin(index);
+    this.renderNoteEditor(this.db.notes[index], index);
+  }
+
+  toggleFavoritePinFromBar() {
+    if (this.selectedFavoriteIndex === null) return;
+    const index = this.selectedFavoriteIndex;
+    this.db.toggleFavoritePin(index);
+    this.renderFavorites();
+  }
+
+  toggleHighlightPinFromBar() {
+    if (this.selectedHighlightIndex === null) return;
+    const index = this.selectedHighlightIndex;
+    this.db.toggleHighlightPin(index);
+    this.renderHighlights();
+  }
+
+  toggleFavoritesSort() {
+    this._favSortDesc = !this._favSortDesc;
+    this.renderFavorites();
+  }
+
+  toggleHighlightsSort() {
+    this._highlightSortDesc = !this._highlightSortDesc;
+    this.renderHighlights();
+  }
+
   toggleFavoriteSelection(index) {
-    const cards = document.querySelectorAll('.fav-card');
-    const card = cards[index];
+    const card = document.querySelector(`.fav-card[data-index="${index}"]`);
 
     if (this.selectedFavoriteIndex === index) {
       this.clearFavoriteSelection();
@@ -809,8 +907,7 @@ class App {
 
   clearFavoriteSelection() {
     if (this.selectedFavoriteIndex !== null) {
-      const cards = document.querySelectorAll('.fav-card');
-      const oldCard = cards[this.selectedFavoriteIndex];
+      const oldCard = document.querySelector(`.fav-card[data-index="${this.selectedFavoriteIndex}"]`);
       if (oldCard) oldCard.classList.remove('selected');
     }
     this.selectedFavoriteIndex = null;
@@ -919,22 +1016,36 @@ class App {
   renderFavorites() {
     this.currentView = 'favorites';
     this.selectedFavoriteIndex = null;
-    const favs = this.db.favorites;
+    if (this._favSortDesc === undefined) this._favSortDesc = true;
+
+    const favs = [...this.db.favorites].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      const da = new Date(a.date), db = new Date(b.date);
+      return this._favSortDesc ? db - da : da - db;
+    });
+
     const html = `
       <header>
         <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
         <h1>Favoritos</h1>
+        <button class="btn-icon" onclick="window.app.toggleFavoritesSort()" title="Ordenar" style="margin-left: auto;">
+          ${createIcon('arrow-down-up')}
+        </button>
       </header>
       <div class="view-container animate-entrance">
         ${favs.length === 0 ? '<p style="text-align: center; opacity: 0.5;">No tienes favoritos aún.</p>' :
-        favs.map((f, index) => `
-            <div class="premium-card fav-card fav-card-item" 
-                 style="margin-bottom: 1.25rem; border-left: 4px solid var(--accent); align-items: flex-start; text-align: left;"
-                 onclick="window.app.toggleFavoriteSelection(${index})"
+        favs.map((f) => {
+          const realIndex = this.db.favorites.indexOf(f);
+          return `
+            <div class="premium-card fav-card fav-card-item" data-index="${realIndex}"
+                 style="margin-bottom: 1.25rem; border-left: ${f.pinned ? '4px solid var(--accent)' : '4px solid transparent'}; align-items: flex-start; text-align: left;"
+                 onclick="window.app.toggleFavoriteSelection(${realIndex})"
                  ondblclick="window.pendingVerseScroll='${f.verse}'; window.app.renderReader('${f.book}', '${f.chapter}')">
               <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <div style="color: var(--accent); font-size: 0.95rem; font-weight: 700; cursor: pointer; padding: 0.5rem 0;"
+                <div style="color: var(--accent); font-size: 0.95rem; font-weight: 700; cursor: pointer; padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;"
                      onclick="event.stopPropagation(); window.pendingVerseScroll='${f.verse}'; window.app.renderReader('${f.book}', '${f.chapter}')">
+                  ${f.pinned ? `<span style="display: flex;">${createIcon('pin')}</span>` : ''}
                   ${f.book} ${f.chapter}:${f.verse}
                 </div>
               </div>
@@ -942,10 +1053,29 @@ class App {
                 ${f.text}
               </div>
             </div>
-          `).join('')}
+          `;
+        }).join('')}
+      </div>
+      <!-- Barra flotante para favoritos -->
+      <div id="fav-selection-bar" class="floating-toolbar animate-entrance" style="display: none;">
+          <button class="tool-btn" onclick="window.app.toggleFavoritePinFromBar()" title="Fijar">
+              ${createIcon('pin')}
+          </button>
+          <button class="tool-btn" onclick="window.app.confirmDeleteFavoriteFromBar()" title="Eliminar Favorito"
+              style="color: #ef4444;">
+              ${createIcon('trash-2')}
+          </button>
+          <button class="tool-btn" onclick="window.app.navigateToSelectedFavorite()" title="Ir al Versículo"
+              style="color: var(--accent);">
+              ${createIcon('external-link')}
+          </button>
+          <button class="tool-btn" onclick="window.app.clearFavoriteSelection()" title="Cerrar">
+              ${createIcon('x')}
+          </button>
       </div>
     `;
     this.render(html);
+    this.refreshIcons();
   }
 
   toggleNoteSelection(index) {
@@ -1044,56 +1174,94 @@ class App {
   renderHighlights() {
     this.currentView = 'highlights';
     if (!this.highlightFilter) this.highlightFilter = 'all';
+    if (this._highlightSortDesc === undefined) this._highlightSortDesc = true;
+
+    // Calcular conteos reales por color para los filtros
+    const counts = {};
+    if (this.db && this.db.highlights) {
+      this.db.highlights.forEach(h => {
+        counts[h.color] = (counts[h.color] || 0) + 1;
+      });
+    }
 
     const colors = [
-      { id: 'all', name: 'Todos', color: 'var(--text-main)' },
-      { id: '#fef3c7', name: 'Amarillo', color: '#fef3c7' },
-      { id: '#dcfce7', name: 'Verde', color: '#dcfce7' },
-      { id: '#dbeafe', name: 'Azul', color: '#dbeafe' },
-      { id: '#fae8ff', name: 'Lila', color: '#fae8ff' },
-      { id: '#fee2e2', name: 'Rojo', color: '#fee2e2' },
-      { id: '#ffedd5', name: 'Naranja', color: '#ffedd5' }
+      { id: 'all', name: 'Todos', color: 'var(--text-main)', count: this.db.highlights.length },
+      { id: '#fef3c7', name: 'Amarillo', color: '#fef3c7', count: counts['#fef3c7'] || 0 },
+      { id: '#dcfce7', name: 'Verde', color: '#dcfce7', count: counts['#dcfce7'] || 0 },
+      { id: '#dbeafe', name: 'Azul', color: '#dbeafe', count: counts['#dbeafe'] || 0 },
+      { id: '#fae8ff', name: 'Lila', color: '#fae8ff', count: counts['#fae8ff'] || 0 },
+      { id: '#fee2e2', name: 'Rojo', color: '#fee2e2', count: counts['#fee2e2'] || 0 },
+      { id: '#ffedd5', name: 'Naranja', color: '#ffedd5', count: counts['#ffedd5'] || 0 }
     ];
 
-    const list = this.highlightFilter === 'all'
+    let list = this.highlightFilter === 'all'
       ? this.db.highlights
       : this.db.highlights.filter(h => h.color === this.highlightFilter);
 
+    // Aplicar orden y pin
+    list = [...list].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      const da = new Date(a.date), db = new Date(b.date);
+      return this._highlightSortDesc ? db - da : da - db;
+    });
+
     const html = `
       <header style="flex-direction: column; height: auto; padding-bottom: 1rem;">
-        <div style="display: flex; align-items: center; gap: 1rem; width: 100%; margin-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem; width: 100%; margin-bottom: 1.25rem;">
           <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
           <h1>Marcadores</h1>
+          <button class="btn-icon" onclick="window.app.toggleHighlightsSort()" title="Ordenar" style="margin-left: auto;">
+            ${createIcon('arrow-down-up')}
+          </button>
         </div>
         <div style="display: flex; overflow-x: auto; gap: 0.75rem; width: 100%; padding: 0.25rem; scrollbar-width: none;">
-          ${colors.map(c => `
+          ${colors.map(c => {
+      const isActive = this.highlightFilter === c.id;
+      return `
             <button onclick="window.app.applyHighlightFilter('${c.id}')" 
-                    style="padding: 0.5rem 1rem; border-radius: 20px; border: ${this.highlightFilter === c.id ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}; 
-                           background: ${c.id === 'all' ? 'var(--card-bg)' : c.color}; 
-                           color: ${c.id === 'all' ? 'var(--text-main)' : '#333'};
-                           font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-              ${c.id === 'all' ? createIcon('filter') : `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${c.color}"></div>`}
-              ${c.name}
+                    style="padding: 0.6rem 1.2rem; border-radius: 20px; border: ${isActive ? '2px solid var(--accent)' : '1px solid var(--glass-border)'}; 
+                           background: ${isActive ? 'var(--accent)' : (c.id === 'all' ? 'var(--card-bg)' : c.color)}; 
+                           color: ${isActive ? 'white' : (c.id === 'all' ? 'var(--text-main)' : '#333')};
+                           transition: all 0.2s ease;
+                           font-size: 0.85rem; font-weight: 700; white-space: nowrap; cursor: pointer; display: flex; align-items: center; gap: 0.6rem;">
+              ${c.id === 'all' ? createIcon('filter') : `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${c.color}; border: 1px solid rgba(0,0,0,0.1)"></div>`}
+              <span style="display: flex; align-items: center; gap: 0.4rem;">
+                ${c.name}
+                <span style="opacity: 0.6; font-size: 0.7rem; background: ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)'}; padding: 0.1rem 0.4rem; border-radius: 8px;">${c.count}</span>
+              </span>
             </button>
-          `).join('')}
+          `}).join('')}
         </div>
       </header>
       <div class="view-container animate-entrance">
-        ${list.length === 0 ? '<p style="text-align: center; opacity: 0.5; margin-top: 2rem;">No hay marcadores con este filtro.</p>' :
-        list.map((h, index) => `
-            <div class="premium-card highlight-card" style="margin-bottom: 1.25rem; border-left: 8px solid ${h.color}; padding: 1.25rem; align-items: flex-start; text-align: left;" onclick="window.app.toggleHighlightSelection(${index})">
+        ${list.length === 0 ? `
+          <div style="text-align: center; padding: 4rem 2rem; opacity: 0.5;">
+            <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--accent);">${createIcon('highlighter')}</div>
+            <p>No hay marcadores con este filtro.</p>
+          </div>
+        ` :
+        list.map((h) => {
+          const realIndex = this.db.highlights.indexOf(h);
+          return `
+            <div class="premium-card highlight-card" data-index="${realIndex}" style="margin-bottom: 1.25rem; border-left: 8px solid ${h.color}; padding: 1.25rem; align-items: flex-start; text-align: left;" onclick="window.app.toggleHighlightSelection(${realIndex})">
                 <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                   <div style="color: var(--accent); font-size: 0.9rem; font-weight: 800;">
+                   <div style="color: var(--accent); font-size: 0.9rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem;">
+                      ${h.pinned ? `<span style="display: flex;">${createIcon('pin')}</span>` : ''}
                       ${h.book} ${h.chapter}:${h.verse}
                    </div>
                    <div style="width: 14px; height: 14px; border-radius: 50%; background: ${h.color}; border: 1px solid rgba(0,0,0,0.1);"></div>
                 </div>
                 <div style="font-size: 1.05rem; line-height: 1.6; color: var(--text-main); font-family: 'Inter', sans-serif;">${h.text}</div>
             </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
       <!-- Barra flotante para marcadores -->
       <div id="highlight-selection-bar" class="floating-toolbar animate-entrance" style="display: none;">
+          <button class="tool-btn" onclick="window.app.toggleHighlightPinFromBar()" title="Fijar">
+              ${createIcon('pin')}
+          </button>
           <button class="tool-btn" onclick="window.app.confirmDeleteHighlightFromBar()" title="Eliminar Marcador"
               style="color: #ef4444;">
               ${createIcon('trash-2')}
@@ -1116,8 +1284,7 @@ class App {
   }
 
   toggleHighlightSelection(index) {
-    const cards = document.querySelectorAll('.highlight-card');
-    const card = cards[index];
+    const card = document.querySelector(`.highlight-card[data-index="${index}"]`);
 
     if (this.selectedHighlightIndex === index) {
       this.clearHighlightSelection();
@@ -1132,8 +1299,7 @@ class App {
 
   clearHighlightSelection() {
     if (this.selectedHighlightIndex !== null) {
-      const cards = document.querySelectorAll('.highlight-card');
-      const oldCard = cards[this.selectedHighlightIndex];
+      const oldCard = document.querySelector(`.highlight-card[data-index="${this.selectedHighlightIndex}"]`);
       if (oldCard) oldCard.classList.remove('selected');
     }
     this.selectedHighlightIndex = null;
@@ -1193,39 +1359,60 @@ class App {
   renderNotes() {
     this.currentView = 'notes';
     this.selectedNoteIndex = null;
-    if (!this._notesSortDesc) this._notesSortDesc = true;
+    if (this._notesSortDesc === undefined) this._notesSortDesc = true;
 
-    const notes = [...this.db.notes];
-    notes.sort((a, b) => {
+    const notes = [...this.db.notes].sort((a, b) => {
+      // Prioridad a los fijados
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      // Luego por fecha
       const da = new Date(a.date), db = new Date(b.date);
       return this._notesSortDesc ? db - da : da - db;
     });
 
     const html = `
       <header>
-        <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
-        <h1>Mis Notas</h1>
-        <button class="btn-icon" onclick="window.app.toggleNotesSort()" title="Ordenar" style="margin-left: auto;">
+      <button class="btn-icon" onclick="window.app.navigate('home')">${createIcon('chevron-left')}</button>
+      <h1>Mis Notas</h1>
+      <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+        <button class="btn-icon" onclick="window.app.createNewNoteFromList()" title="Nueva Nota">
+          ${createIcon('plus')}
+        </button>
+        <button class="btn-icon" onclick="window.app.toggleNotesSort()" title="Ordenar">
           ${createIcon('arrow-down-up')}
         </button>
-      </header>
+      </div>
+    </header>
       <div class="view-container animate-entrance">
         ${notes.length === 0 ? '<p style="text-align: center; opacity: 0.5; margin-top: 3rem;">No tienes notas aún.</p>' :
         notes.map((n) => {
           const realIndex = this.db.notes.indexOf(n);
+          // Eliminar etiquetas HTML para el preview
+          const textPreview = (n.note || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          const truncated = textPreview.length > 80 ? textPreview.substring(0, 80) + '...' : textPreview;
+
           return `
-            <div class="note-item-compact" onclick="window.app.renderEditNote(${realIndex})">
-              <div class="note-info-compact">
-                <span class="note-title-compact">${n.title || 'Sin título'}</span>
-                <span class="note-date-compact">${new Date(n.date).toLocaleDateString()}</span>
+            <div class="note-item-compact" onclick="window.app.openEditNote(${realIndex})" style="display: flex; align-items: center; width: 100%; box-sizing: border-box; overflow: hidden; border-left: ${n.pinned ? '4px solid var(--accent)' : '1px solid var(--glass-border)'}">
+            <div class="note-info-compact" style="flex: 1; min-width: 0; overflow: hidden;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0;">
+                  ${n.pinned ? `<span style="color: var(--accent); flex-shrink: 0; display: flex;">${createIcon('pin')}</span>` : ''}
+                  <span class="note-title-compact" style="font-weight: 800; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${n.title || 'Sin título'}</span>
+                </div>
+                <span class="note-date-compact" style="font-size: 0.75rem; opacity: 0.5; flex-shrink: 0;">${new Date(n.date).toLocaleDateString()}</span>
               </div>
-              <div class="note-chevron">${createIcon('chevron-right')}</div>
+              <div class="note-preview" style="font-size: 0.85rem; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%;">
+                ${truncated || '<span style="font-style: italic; opacity: 0.5;">Sin contenido</span>'}
+              </div>
             </div>
+            <div class="note-chevron" style="margin-left: 1rem; flex-shrink: 0;">${createIcon('chevron-right')}</div>
+          </div>
           `;
         }).join('')}
       </div>
     `;
     this.render(html);
+    this.refreshIcons();
   }
 
   toggleNotesSort() {
@@ -1233,49 +1420,129 @@ class App {
     this.renderNotes();
   }
 
-  renderEditNote(index) {
-    this.currentView = 'edit-note';
-    const n = this.db.notes[index];
-    if (!n) { this.renderNotes(); return; }
+  createNewNoteFromList() {
+    // Proverbios 2:6 como referencia genérica
+    const prov26 = {
+      book: 'Proverbios',
+      chapter: 2,
+      vNum: 6,
+      text: 'Porque Jehová da la sabiduría, y de su boca viene el conocimiento y la inteligencia.'
+    };
+    this.renderNoteEditor(prov26);
+  }
 
-    const createdDate = new Date(n.date).toLocaleString();
+  renderNoteEditor(noteData, index = null) {
+    // Si venimos de 'notes', queremos volver a 'notes'. 
+    // Si venimos de la Biblia, queremos volver al 'reader'.
+    const backView = this.currentView === 'notes' || this.currentView === 'edit-note' ? 'notes' : 'reader';
+
+    this.currentView = index !== null ? 'edit-note' : 'new-note';
+    const isNew = index === null;
+
+    if (isNew) {
+      this._tempNewNoteVerse = {
+        book: noteData.book,
+        chapter: noteData.chapter,
+        verse: noteData.vNum || noteData.verse,
+        text: noteData.text
+      };
+    }
+
+    const title = noteData.title || '';
+    const content = noteData.note || '';
+    const ref = `${noteData.book} ${noteData.chapter}:${noteData.vNum || noteData.verse}`;
+    const dateStr = isNew ? '' : new Date(noteData.date).toLocaleString();
 
     const html = `
       <header>
-        <button class="btn-icon" onclick="window.app.renderNotes()">${createIcon('chevron-left')}</button>
-        <h1>Editar Nota</h1>
+        <button class="btn-icon" onclick="window.app.navigate('${backView}')">${createIcon('chevron-left')}</button>
+        <h1>${isNew ? 'Nueva Nota' : 'Editar Nota'}</h1>
         <div style="display: flex; gap: 0.5rem; margin-left: auto;">
-          <button class="btn-icon" onclick="window.app.saveEditNote(${index})" title="Guardar" style="color: var(--accent);">
+          ${!isNew ? `
+          <button class="btn-icon" onclick="window.app.toggleNotePinFromEditor(${index})" title="Fijar" style="color: ${noteData.pinned ? 'var(--accent)' : 'var(--text-muted)'};">
+            ${createIcon(noteData.pinned ? 'pin-off' : 'pin')}
+          </button>` : ''}
+          <button class="btn-icon" onclick="window.app.saveNoteEditor(${index})" title="Guardar" style="color: var(--accent);">
             ${createIcon('check')}
           </button>
+          ${!isNew ? `
           <button class="btn-icon" onclick="window.app.confirmDeleteEditNote(${index})" title="Eliminar" style="color: #ef4444;">
             ${createIcon('trash-2')}
-          </button>
+          </button>` : ''}
         </div>
       </header>
       <div class="view-container animate-entrance">
-        <div class="verse-preview-card">
-          <div class="verse-preview-ref">${n.book} ${n.chapter}:${n.verse}</div>
-          <div class="verse-preview-text">"${n.text}"</div>
+        <div class="verse-preview-card" style="margin-bottom: 1.5rem;">
+          <div class="verse-preview-ref" style="font-weight: 800; color: var(--accent); margin-bottom: 0.5rem;">${ref}</div>
+          <div class="verse-preview-text" style="font-style: italic; opacity: 0.8;">"${noteData.text}"</div>
         </div>
 
         <label class="form-label-premium">Título</label>
-        <input id="edit-note-title" class="edit-input-premium" type="text" value="${(n.title || '').replace(/"/g, '&quot;')}" placeholder="Título de la nota">
+        <input id="edit-note-title" class="edit-input-premium" type="text" value="${title.replace(/"/g, '&quot;')}" placeholder="Título de la nota" style="width: 100%; padding: 1rem; margin-bottom: 1.5rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--card-bg); color: var(--text-main); font-weight: 700;">
 
         <label class="form-label-premium">Contenido de la nota</label>
-        <textarea id="edit-note-content" class="edit-textarea-premium" placeholder="¿Qué te dice Dios en este versículo?">${n.note || ''}</textarea>
+        <div class="editor-container" style="min-height: 400px; margin-top: 0.5rem;">
+          <div id="full-note-toolbar" class="editor-toolbar">
+              <div class="toolbar-group">
+                  <button type="button" class="toolbar-btn" data-command="bold" title="Negrita">${createIcon('bold')}</button>
+                  <button type="button" class="toolbar-btn" data-command="italic" title="Cursiva">${createIcon('italic')}</button>
+                  <button type="button" class="toolbar-btn" data-command="underline" title="Subrayado">${createIcon('underline')}</button>
+                  <button type="button" class="toolbar-btn" data-command="strikeThrough" title="Tachado">${createIcon('strikethrough')}</button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                  <button type="button" class="toolbar-btn" data-command="insertUnorderedList" title="Lista Viñetas">${createIcon('list')}</button>
+                  <button type="button" class="toolbar-btn" data-command="insertOrderedList" title="Lista Numerada">${createIcon('list-ordered')}</button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                  <button type="button" class="toolbar-btn" data-command="justifyLeft" title="Alinear Izquierda">${createIcon('align-left')}</button>
+                  <button type="button" class="toolbar-btn" data-command="justifyCenter" title="Centrar">${createIcon('align-center')}</button>
+                  <button type="button" class="toolbar-btn" data-command="justifyRight" title="Alinear Derecha">${createIcon('align-right')}</button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                  <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="h1" title="Título 1">${createIcon('heading-1')}</button>
+                  <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="h2" title="Título 2">${createIcon('heading-2')}</button>
+                  <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="h3" title="Título 3">${createIcon('heading-3')}</button>
+                  <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="blockquote" title="Cita">${createIcon('quote')}</button>
+                  <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="pre" title="Código">${createIcon('code')}</button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                  <button type="button" class="toolbar-btn" data-command="insertHorizontalRule" title="Línea Horizontal">${createIcon('minus')}</button>
+                  <button type="button" class="toolbar-btn" data-command="undo" title="Deshacer">${createIcon('undo-2')}</button>
+                  <button type="button" class="toolbar-btn" data-command="redo" title="Rehacer">${createIcon('redo-2')}</button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                  <button type="button" class="toolbar-btn" data-command="createLink" title="Insertar Enlace">${createIcon('link')}</button>
+                  <button type="button" class="toolbar-btn" data-command="removeFormat" title="Limpiar Formato">${createIcon('eraser')}</button>
+              </div>
+          </div>
+          <div id="edit-note-content" class="editor-content" contenteditable="true" data-placeholder="¿Qué te inspira Dios para escribir hoy?..." style="min-height: 350px;">${content}</div>
+        </div>
 
-        <div class="edit-note-footer">Creado el ${createdDate}</div>
+        <div class="edit-note-footer" style="margin-top: 1rem; opacity: 0.5; font-size: 0.8rem;">${isNew ? 'Nueva nota' : `Creado el ${dateStr}`}</div>
       </div>
     `;
     this.render(html);
+    this.setupEditorToolbar('#edit-note-content', '#full-note-toolbar');
+    this.refreshIcons();
   }
 
-  saveEditNote(index) {
+  saveNoteEditor(index = null) {
     const title = document.getElementById('edit-note-title')?.value?.trim() || 'Sin título';
-    const note = document.getElementById('edit-note-content')?.value?.trim() || '';
-    this.db.updateNote(index, note, title);
-    this.showToast('Nota guardada.');
+    const note = document.getElementById('edit-note-content')?.innerHTML?.trim() || '';
+
+    if (index !== null) {
+      this.db.updateNote(index, note, title);
+      this.showToast('Nota actualizada.');
+    } else {
+      const { book, chapter, verse, text } = this._tempNewNoteVerse;
+      this.db.addNote(book, chapter, verse, text, note, title);
+      this.showToast('Nota guardada.');
+    }
     this.renderNotes();
   }
 
@@ -1357,6 +1624,7 @@ class App {
       </div>
     `;
     this.render(html);
+    this.refreshIcons();
 
     const input = document.querySelector('#search-input');
 
@@ -2063,8 +2331,8 @@ class App {
       </header>
       <div class="view-container animate-entrance" style="padding-bottom: 2rem;">
         <div style="width: 100%; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
-            <div class="premium-card" style="padding: 0; overflow: hidden; border: none;">
-                <div style="background: var(--accent); padding: 1.5rem; color: white; text-align: center;">
+            <div class="premium-card" style="padding: 0; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--glass-border);">
+              <div style="background: var(--accent); padding: 1.5rem; color: white; text-align: center; border-radius: var(--radius) var(--radius) 0 0;">
                     <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">${data.fecha_hora || 'Devocional'}</span>
                     <h2 style="font-family: 'Playfair Display', serif; font-size: 1.8rem; margin: 0.5rem 0;">${data.titulo}</h2>
                     <span style="font-size: 0.9rem; font-style: italic;">Por ${data.autor}</span>

@@ -815,24 +815,21 @@ header h1 {
     color: white;
   }
 
-  /* Refinamiento UI Desktop: Ocultar redundancias */
+  /* Refinamiento UI Desktop: Ocultar solo cabeceras redundantes (vistas principales) */
   #app[data-view="home"] header,
-  #app[data-view="old"] header,
-  #app[data-view="new"] header,
   #app[data-view="favorites"] header,
-  #app[data-view="notes"] header,
-  #app[data-view="highlights"] header,
   #app[data-view="search"] header,
   #app[data-view="dict"] header,
   #app[data-view="settings"] header,
   #app[data-view="about"] header,
-  #app[data-view="chapters"] header,
-  #app[data-view="verses"] header {
+  #app[data-view="vod"] header,
+  #app[data-view="devotional"] header {
     display: none;
   }
 
-  /* Mantener header visible en vista de edición de nota */
-  #app[data-view="edit-note"] header {
+  /* Mantener header visible en vista de edición y creación de nota */
+  #app[data-view="edit-note"] header,
+  #app[data-view="new-note"] header {
     display: flex;
     position: sticky;
     top: 0;
@@ -842,12 +839,42 @@ header h1 {
     z-index: 100;
   }
 
-  #app[data-view="edit-note"] header .btn-icon {
+  #app[data-view="edit-note"] header .btn-icon,
+  #app[data-view="new-note"] header .btn-icon {
     display: flex;
   }
 
   /* Ocultar botones de retroceso en escritorio ya que existe el sidebar, pero permitir botones de accion como historial */
-  header .btn-icon:not(.history-btn) {
+  /* Mostrar botones de retroceso y acción en sub-vistas específicas */
+  #app[data-view="old"] header .btn-icon,
+  #app[data-view="new"] header .btn-icon,
+  #app[data-view="chapters"] header .btn-icon,
+  #app[data-view="verses"] header .btn-icon,
+  #app[data-view="devotional-history"] header .btn-icon,
+  #app[data-view="devotional-detail"] header .btn-icon,
+  #app[data-view="share-verse"] header .btn-icon,
+  #app[data-view="notes"] header .btn-icon,
+  #app[data-view="highlights"] header .btn-icon,
+  #app[data-view="edit-note"] header .btn-icon,
+  #app[data-view="new-note"] header .btn-icon {
+    display: flex;
+  }
+
+  /* Estilo minimalista para el header de notas y marcadores en escritorio */
+  #app[data-view="notes"] header,
+  #app[data-view="highlights"] header {
+    background: none;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 1rem 4rem 0 4rem;
+    min-height: auto;
+  }
+
+  #app[data-view="notes"] header h1,
+  #app[data-view="highlights"] header h1,
+  #app[data-view="notes"] header .btn-icon:first-child,
+  #app[data-view="highlights"] header .btn-icon:first-child {
     display: none;
   }
 
@@ -1560,3 +1587,208 @@ input:checked+.slider:before {
 }
 
 /* Legacy media query removed */
+/* Professional Note Editor Styles */
+.editor-modal {
+  width: 95% !important;
+  max-width: 800px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 90vh !important;
+}
+
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 300px;
+  background: var(--card-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 2px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--glass-border);
+  margin: 0 4px;
+  align-self: center;
+}
+
+.toolbar-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+  background: var(--card-bg);
+  color: var(--accent);
+}
+
+.toolbar-btn i {
+  width: 18px;
+  height: 18px;
+}
+
+.editor-content {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  min-height: 250px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  outline: none;
+  color: var(--text-main);
+  text-align: left;
+}
+
+.editor-content:focus {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Placeholder for contenteditable */
+.editor-content:empty:before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  opacity: 0.6;
+  pointer-events: none;
+  display: block;
+}
+
+.editor-content h1 {
+  font-size: 1.6rem;
+  margin: 1rem 0 0.5rem 0;
+  font-weight: 400;
+}
+
+.editor-content h2 {
+  font-size: 1.3rem;
+  margin: 0.8rem 0 0.4rem 0;
+  font-weight: 400;
+}
+
+.editor-content h3 {
+  font-size: 1.15rem;
+  margin: 0.7rem 0 0.35rem 0;
+  font-weight: 400;
+}
+
+.editor-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  opacity: 0.8;
+  background: var(--accent-soft);
+  padding: 0.75rem 1rem;
+  border-radius: 0 8px 8px 0;
+}
+
+.editor-content ul,
+.editor-content ol {
+  padding-left: 2rem;
+  margin: 1rem 0;
+}
+
+.editor-content p {
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .editor-toolbar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 12px;
+  }
+
+  .toolbar-group {
+    flex-shrink: 0;
+  }
+}
+
+.toolbar-btn.active {
+  background: var(--accent) !important;
+  color: white !important;
+}
+
+.editor-content pre {
+  background: #f1f5f9;
+  padding: 1rem;
+  border-radius: 8px;
+  font-family: monospace;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--glass-border);
+}
+
+[data-mode="dark"] .editor-content pre {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.editor-content hr {
+  border: none;
+  border-top: 2px solid var(--glass-border);
+  margin: 1.5rem 0;
+}
+
+/* Mobile Toolbar Improvements */
+@media (max-width: 600px) {
+  .editor-toolbar {
+    display: flex !important;
+    gap: 6px !important;
+    padding: 10px !important;
+    white-space: normal !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+    overflow: visible !important;
+  }
+
+  .editor-toolbar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .toolbar-group {
+    flex-shrink: 0 !important;
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .toolbar-divider {
+    height: 20px !important;
+    margin: 0 4px !important;
+  }
+
+  .toolbar-btn {
+    width: 36px !important;
+    height: 36px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+}

@@ -163,6 +163,13 @@ export class BibleDB {
     localStorage.setItem('bible_favorites', JSON.stringify(this.favorites));
   }
 
+  toggleFavoritePin(index) {
+    if (this.favorites[index]) {
+      this.favorites[index].pinned = !this.favorites[index].pinned;
+      localStorage.setItem('bible_favorites', JSON.stringify(this.favorites));
+    }
+  }
+
   addNote(book, chapter, verse, text, noteContent, title) {
     this.notes.push({ book, chapter, verse, text, note: noteContent, title: title || "Nota sin nombre", date: new Date().toISOString() });
     localStorage.setItem('bible_notes', JSON.stringify(this.notes));
@@ -171,6 +178,13 @@ export class BibleDB {
   deleteNote(index) {
     this.notes.splice(index, 1);
     localStorage.setItem('bible_notes', JSON.stringify(this.notes));
+  }
+
+  toggleNotePin(index) {
+    if (this.notes[index]) {
+      this.notes[index].pinned = !this.notes[index].pinned;
+      localStorage.setItem('bible_notes', JSON.stringify(this.notes));
+    }
   }
 
   updateNote(index, noteContent, title) {
@@ -209,6 +223,13 @@ export class BibleDB {
   deleteHighlight(index) {
     this.highlights.splice(index, 1);
     localStorage.setItem('bible_highlights', JSON.stringify(this.highlights));
+  }
+
+  toggleHighlightPin(index) {
+    if (this.highlights[index]) {
+      this.highlights[index].pinned = !this.highlights[index].pinned;
+      localStorage.setItem('bible_highlights', JSON.stringify(this.highlights));
+    }
   }
 
   setLastRead(book, chapter) {

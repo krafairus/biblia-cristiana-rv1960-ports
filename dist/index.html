@@ -33,8 +33,8 @@
             }
         })();
     </script>
-  <script type="module" crossorigin src="./assets/index-BMdV1y7Z.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-tmH6wGI1.css">
+  <script type="module" crossorigin src="./assets/index-_f0-GH_h.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DWsv8brN.css">
 </head>
 
 <body>
@@ -62,20 +62,7 @@
         </div>
     </div>
 
-    <!-- Modal para Notas -->
-    <div id="note-modal" class="modal-overlay">
-        <div class="modal-box">
-            <h2 class="modal-title">Escribir Nota <span style="font-size: 0.6rem; opacity: 0.3;">v1.2.4</span></h2>
-            <p id="note-verse-ref" class="modal-subtitle"></p>
-            <input type="text" id="note-title" class="modal-input" placeholder="Título de la nota (opcional)">
-            <textarea id="note-text" class="modal-textarea"
-                placeholder="¿Qué te dice Dios en este versículo?..."></textarea>
-            <div class="modal-actions">
-                <button class="modal-btn secondary" onclick="window.app.closeNoteModal()">Cancelar</button>
-                <button class="modal-btn primary" onclick="window.app.saveNoteFromModal()">Guardar Nota</button>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Modal para Compartir -->
     <div id="share-modal" class="modal-overlay">
@@ -160,6 +147,20 @@
         <button class="tool-btn" onclick="window.app.clearNoteSelection()" title="Cerrar">
             <i data-lucide="x"></i>
         </button>
+    </div>
+
+    <!-- Modal para Enlaces -->
+    <div id="link-modal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 400px;">
+            <h2 class="modal-title">Insertar Enlace</h2>
+            <p class="modal-subtitle">Ingresa la URL del sitio web</p>
+            <input type="text" id="link-url-input" class="modal-input" placeholder="https://ejemplo.com"
+                style="margin-top: 1rem;">
+            <div class="modal-actions">
+                <button class="modal-btn secondary" onclick="window.app.closeLinkModal()">Cancelar</button>
+                <button class="modal-btn primary" onclick="window.app.applyLinkFromModal()">Insertar</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal de Confirmación -->
